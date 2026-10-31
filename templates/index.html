@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CreditAI | Approval Predictor</title>
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header class="header">
+        <div class="logo">◈ CreditAI</div>
+        <span class="status">● AI MODEL PROJECT</span>
+    </header>
+
+    <main class="container">
+        <section class="hero">
+            <p class="eyebrow">MACHINE LEARNING · FINTECH</p>
+            <h1>Credit Approval<br><span>Prediction System</span></h1>
+            <p>Explore a machine-learning prediction based on
+               anonymized credit application attributes.</p>
+        </section>
+
+        <section class="dashboard">
+            <form id="credit-form" class="card">
+                <div class="section-heading">
+                    <div>
+                        <p class="eyebrow">APPLICATION DETAILS</p>
+                        <h2>Applicant information</h2>
+                    </div>
+                    <span class="step">01 / INPUT</span>
+                </div>
+
+                <div class="notice">
+                    The dataset uses anonymized features A1–A15.
+                    They do not directly represent salary or credit score.
+                </div>
+
+                <h3>Categorical features</h3>
+                <div id="categorical-fields" class="fields"></div>
+
+                <h3>Numeric features</h3>
+                <div id="numeric-fields" class="fields"></div>
+
+                <button type="submit" id="predict-button">
+                    Predict approval <span>→</span>
+                </button>
+                <p id="error" class="error"></p>
+            </form>
+
+            <section class="card result-card">
+                <p class="eyebrow">MODEL OUTPUT</p>
+                <h2>Prediction result</h2>
+
+                <div id="empty">
+                    <div class="result-icon">✦</div>
+                    <h3>Your result will appear here</h3>
+                    <p>Enter all the required features and run
+                       the prediction to see the model response.</p>
+                </div>
+
+                <div id="result" hidden>
+                    <div id="result-icon" class="result-icon">✓</div>
+                    <p class="eyebrow">CLASSIFICATION</p>
+                    <h2 id="prediction"></h2>
+                    <p id="description"></p>
+
+                    <div class="probability-heading">
+                        <span>Approval probability</span>
+                        <strong id="probability"></strong>
+                    </div>
+
+                    <div class="progress">
+                        <div id="progress-bar"></div>
+                    </div>
+
+                    <p id="note" class="notice"></p>
+                </div>
+            </section>
+        </section>
+
+        <footer>
+            CreditAI · Python + Flask + scikit-learn
+        </footer>
+    </main>
+
+    <script>
+        const categories = {{ categories | tojson }};
+
+        const catContainer =
+            document.getElementById("categorical-fields");
+
+        const numContainer =
+            document.getElementById("numeric-fields");
+
+        // Create categorical dropdowns
+        Object.entries(categories).forEach(([name, values]) => {
+            const label = document.createElement("label");
+            label.textContent = "Feature " + name;
+
+            const select = document.createElement("select");
+            select.name = name;
+            select.required = true;
+
+            const placeholder = document.createElement("option");
+            placeholder.value = "";
+            placeholder.textContent = "Select a value";
+            placeholder.disabled = true;
+            placeholder.selected = true;
+            select.appendChild(placeholder);
+
+            values.forEach(value => {
+                const option = document.createElement("option");
+                option.value = value;
+                option.textContent = value;
+                select.appendChild(option);
+            });
+
+            label.appendChild(select);
+            catContainer.appendChild(label);
+        });
+
+        // Create numeric input fields
+        const numericFeatures = [
+            "A2", "A3", "A8", "A11", "A14", "A15"
+        ];
+
+        numericFeatures.forEach(name => {
+            const label = document.createElement("label");
+            label.textContent = "Feature " + name;
+
+            const input = document.createElement("input");
+            input.type = "number";
+            input.name = name;
+            input.min = "0";
+            input.step = "any";
+            input.placeholder = "Enter number";
+            input.required = true;
+
+            label.appendChild(input);
+            numContainer.appendChild(label);
+        });
+
+        const form = document.getElementById("credit-form");
+
+        form.addEventListener("submit", async event => {
+            event.preventDefault();
+
+            const error = document.getElementById("error");
+            const button = document.getElementById("predict-button");
+
+            error.textContent = "";
+            button.disabled = true;
+            button.textContent = "Analyzing...";
+
+            const data = {};
+            new FormData(form).forEach((value, key) => {
+                data[key] = value;
+            });
+
+            try {
+                const response = await fetch("/predict", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const output = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(output.error || "Prediction failed.");
+                }
+
+                document.getElementById("empty").hidden = true;
+                document.getElementById("result").hidden = false;
+
+                document.getElementById("prediction").textContent =
+                    output.result;
+
+                document.getElementById("description").textContent =
+                    "The model has classified your entered sample.";
+
+                document.getElementById("probability").textContent =
+                    output.approval_probability + "%";
+
+                document.getElementById("progress-bar").style.width =
+                    output.approval_probability + "%";
+
+                document.getElementById("note").textContent =
+                    output.note;
+
+                const icon = document.getElementById("result-icon");
+                icon.textContent = output.result === "Likely Approved"
+                    ? "✓" : "!";
+
+                icon.className = "result-icon " +
+                    (output.result === "Likely Approved"
+                        ? "approved" : "rejected");
+
+            } catch (err) {
+                error.textContent = err.message;
+            } finally {
+                button.disabled = false;
+                button.innerHTML = 'Predict approval <span>→</span>';
+            }
+        });
+    </script>
+</body>
+</html>
